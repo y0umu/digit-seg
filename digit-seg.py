@@ -39,7 +39,8 @@ def blacken_bg(img):
         img = 255 - img
     return img
 
-def get_border_left(projection_vert, prev_border_right, th_val):
+
+def get_border_left(projection_vert, prev_border_right, th_x_val):
     '''
     used in function digit_seg()
     自prev_border_right开始寻找下一个左边界
@@ -47,13 +48,13 @@ def get_border_left(projection_vert, prev_border_right, th_val):
     n = prev_border_right + 1
     border_left = None # 注意！需要外部代码判断是不是返回了None
     while n < projection_vert.size:
-        if projection_vert[n] > th_val:
+        if projection_vert[n] > th_x_val:
             border_left = n
             break
         n+=1
     return border_left
 
-def get_border_right(projection_vert, border_left, th_val):
+def get_border_right(projection_vert, border_left, th_x_val):
     '''
     used in function digit_seg()
     返回左边界为projection_horz的patch的右边界
@@ -61,54 +62,94 @@ def get_border_right(projection_vert, border_left, th_val):
     n = border_left
     border_right = projection_vert.size  # 初始化为图像最右边，以备意外
     while n < projection_vert.size:
-        if projection_vert[n] < th_val:
+        if projection_vert[n] < th_x_val:
             border_right = n
             break
         n+=1
     return border_right
 
-def digit_seg(img, th_factor=0.20, want_plt=False):
+def get_height(projection_horz, th_y_val):
     '''
-    根据竖直和水平投影的信息分割出数字。返回包含所有分割结果图像的borders
+    used in function digit_seg()
+    寻找数字的高度范围
+    '''
+    n = 0
+    height_up, height_down = 0, projection_horz.size  # note that height_up < height_down ! (up and down are with respect to the image)
+    while n < projection_horz.size:
+        if projection_horz[n] > th_y_val:
+            height_up = n
+            break
+        n+=1
+
+    n+=1
+    while n < projection_horz.size:
+        if projection_horz[n] < th_y_val:
+            height_down = n
+            break
+        n+=1
+    return height_up, height_down
+
+def digit_seg(img, th_x_factor=0.20, th_y_factor=0.20, want_plt=False):
+    '''
+    根据竖直和水平投影的信息分割出数字。返回包含所有分割结果图像的borders（横坐标集合）
 
     传入
     img: 二值图像
     want_plt：如传入True，则画图
-    th_factor: 阈值比率。这个参数决定阈值电压：th_val = mx * th_factor
+    th_x_factor, th_y_factor: 阈值比率。这个参数决定阈值电压：th_x_val = maximum * th_factor
     
     返回
     borders: 返回值。list
+    heights: 返回值。tuple
     '''
 
     imgs_segmented = []
     # project and plot
     projection_vert = np.sum(img, axis=0) / 255 # 沿着竖直方向投影
     projection_horz = np.sum(img, axis=1) / 255 # 沿着水平方向投影
-    mx = np.max(projection_vert)
-    th_val = mx * th_factor
+    mx_x = np.max(projection_vert)
+    th_x_val = mx_x * th_x_factor
+    mx_y = np.max(projection_horz)
+    th_y_val = mx_y * th_y_factor
     if want_plt:
+        plt.figure()
         plt.subplot(2,2,1)
         plt.imshow(img, cmap="gray"); plt.title("digit_seg() input")
         plt.subplot(2,2,2)
-        plt.plot(projection_horz, np.arange(0, img.shape[0])); plt.title("horz projection")
+        plt.plot(projection_horz, np.arange(img.shape[0], 0, -1))
+        plt.plot(th_y_val*np.ones_like(projection_horz), np.arange(img.shape[0], 0, -1), color="r")
+        plt.title("horz projection")
+        # plt.yticks(np.arange(img.shape[0], 0, -1))
         plt.subplot(2,2,3)
         plt.plot(np.arange(0, img.shape[1]), projection_vert)
-        plt.plot(np.arange(0, img.shape[1]), th_val*np.ones_like(projection_vert), color="r")
+        plt.plot(np.arange(0, img.shape[1]), th_x_val*np.ones_like(projection_vert), color="r")
         plt.title("vert projection")
 
-    # find the borders
+    # find the borders 
     borders = []  # e.g. [(2,15), (17,29), (34, 47)]
     n = 0
     border_left = 0
     border_right = -1
     while n < projection_vert.size:
-        border_left = get_border_left(projection_vert, border_right, th_val)
+        border_left = get_border_left(projection_vert, border_right, th_x_val)
         if border_left is None:
             break
-        border_right = get_border_right(projection_vert, border_left, th_val)
+        border_right = get_border_right(projection_vert, border_left, th_x_val)
         borders.append((border_left, border_right))
-    print("borders are ", borders)
-    return borders
+    print("vertical borders are ", borders)
+    heights = get_height(projection_horz, th_y_val)
+    print("get_height: height range {0}".format(heights))
+    return borders, heights
+
+def draw_bounding_boxes(img, borders, heights):
+    '''
+    在img上画框
+    返回img_boxed
+    '''
+    img_boxed = img.copy()
+    for i in borders:
+        cv2.rectangle(img_boxed, (i[0],heights[0]), (i[1],heights[1]), (255,255,255), 1)
+    return img_boxed
 
 #################################################################
 if __name__ == "__main__":
@@ -125,18 +166,36 @@ if __name__ == "__main__":
 
     img_gray = mkgray(img)
     img_th = mkthresh(img_gray)
-    # img_morph = mkmorph(img_th)
-    # the_img = blacken_bg(img_morph)
-    the_img = blacken_bg(img_th)
-    cv2.namedWindow("img_gray", cv2.WINDOW_NORMAL)
-    cv2.imshow("img_gray", img_gray)
+    img_morph = mkmorph(img_th)
+    plt.figure()
+    plt.subplot(3,1,1)
+    plt.imshow(img_gray, cmap="gray")
+    plt.xticks([]); plt.yticks([]); plt.title("Grayscale image")
+    plt.subplot(3,1,2)
+    plt.imshow(img_th, cmap="gray")
+    plt.xticks([]); plt.yticks([]); plt.title("thresholded image")
+    plt.subplot(3,1,3)
+    plt.imshow(img_morph, cmap="gray")
+    plt.xticks([]); plt.yticks([]); plt.title("Image applied with openning")
     
-    borders = digit_seg(the_img, want_plt=True)
+    the_img = blacken_bg(img_morph)
+    borders, heights = digit_seg(the_img, want_plt=True)
     imgs_segmented = []
     for i in borders:
-        imgs_segmented.append(img[:, i[0]:i[1]])
-    for (num, im) in enumerate(imgs_segmented):
-        cv2.imshow(str(num), im)
+        imgs_segmented.append(img[heights[0]:heights[1]+1, i[0]:i[1]+1])
+    n_segs = len(imgs_segmented)
+
+    _img_boxed = draw_bounding_boxes(img, borders, heights)
+    img_boxed = cv2.cvtColor(_img_boxed, cv2.COLOR_BGR2RGB)
+    plt.figure()
+    plt.imshow(img_boxed)
+    plt.xticks([]); plt.yticks([]); plt.title("Original image with bounding boxes")
+    plt.figure()
+    for (num, _im) in enumerate(imgs_segmented):
+        im = cv2.cvtColor(_im, cv2.COLOR_BGR2RGB)
+        plt.subplot(1, n_segs, num+1)
+        plt.imshow(im)
+        plt.xticks([]); plt.yticks([]); plt.title("No."+str(num+1))
     plt.show()
     cv2.waitKey()
     print("done")
