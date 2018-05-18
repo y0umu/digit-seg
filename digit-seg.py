@@ -67,10 +67,16 @@ def get_border_right(projection_vert, border_left, th_val):
         n+=1
     return border_right
 
-def digit_seg(img):
+def digit_seg(img, th_factor=0.20, want_plt=False):
     '''
     根据竖直和水平投影的信息分割出数字。返回包含所有分割结果图像的borders
+
+    传入
     img: 二值图像
+    want_plt：如传入True，则画图
+    th_factor: 阈值比率。这个参数决定阈值电压：th_val = mx * th_factor
+    
+    返回
     borders: 返回值。list
     '''
 
@@ -79,16 +85,16 @@ def digit_seg(img):
     projection_vert = np.sum(img, axis=0) / 255 # 沿着竖直方向投影
     projection_horz = np.sum(img, axis=1) / 255 # 沿着水平方向投影
     mx = np.max(projection_vert)
-    th_val = mx * 0.15 # 暂时硬编码0.15*最大值为门限电压
-    plt.subplot(2,2,1)
-    plt.imshow(img, cmap="gray")
-    plt.subplot(2,2,2)
-    plt.plot(projection_horz, np.arange(0, img.shape[0])); plt.title("horz projection")
-    plt.subplot(2,2,3)
-    plt.plot(np.arange(0, img.shape[1]), projection_vert)
-    plt.plot(np.arange(0, img.shape[1]), th_val*np.ones_like(projection_vert), color="r")
-    plt.title("vert projection")
-    plt.show()
+    th_val = mx * th_factor
+    if want_plt:
+        plt.subplot(2,2,1)
+        plt.imshow(img, cmap="gray"); plt.title("digit_seg() input")
+        plt.subplot(2,2,2)
+        plt.plot(projection_horz, np.arange(0, img.shape[0])); plt.title("horz projection")
+        plt.subplot(2,2,3)
+        plt.plot(np.arange(0, img.shape[1]), projection_vert)
+        plt.plot(np.arange(0, img.shape[1]), th_val*np.ones_like(projection_vert), color="r")
+        plt.title("vert projection")
 
     # find the borders
     borders = []  # e.g. [(2,15), (17,29), (34, 47)]
@@ -119,14 +125,19 @@ if __name__ == "__main__":
 
     img_gray = mkgray(img)
     img_th = mkthresh(img_gray)
-    img_morph = mkmorph(img_th)
-    the_img = blacken_bg(img_morph)
-    borders = digit_seg(the_img)
+    # img_morph = mkmorph(img_th)
+    # the_img = blacken_bg(img_morph)
+    the_img = blacken_bg(img_th)
+    cv2.namedWindow("img_gray", cv2.WINDOW_NORMAL)
+    cv2.imshow("img_gray", img_gray)
+    
+    borders = digit_seg(the_img, want_plt=True)
     imgs_segmented = []
     for i in borders:
         imgs_segmented.append(img[:, i[0]:i[1]])
     for (num, im) in enumerate(imgs_segmented):
         cv2.imshow(str(num), im)
+    plt.show()
     cv2.waitKey()
     print("done")
 
