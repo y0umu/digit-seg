@@ -27,8 +27,12 @@ def mkmorph(img):
     '''
     形态学处理孤立小点等
     '''
+    # img = cv2.pyrUp(img)
+    # img = cv2.pyrUp(img)
     kernel = np.ones((3,3), np.uint8)
     img_openning = cv2.morphologyEx(img, cv2.MORPH_OPEN, kernel)
+    # img_openning = cv2.pyrDown(img_openning)
+    # img_openning = cv2.pyrDown(img_openning)
     return img_openning
 
 # is the background black or white?
@@ -89,7 +93,7 @@ def get_height(projection_horz, th_y_val):
         n+=1
     return height_up, height_down
 
-def digit_seg(img, th_x_factor=0.175, th_y_factor=0.15, want_plt=False):
+def digit_seg(img, th_x_factor=0.10, th_y_factor=0.15, want_plt=False):
     '''
     根据竖直和水平投影的信息分割出数字。返回包含所有分割结果图像的borders（横坐标集合）
 
@@ -105,12 +109,17 @@ def digit_seg(img, th_x_factor=0.175, th_y_factor=0.15, want_plt=False):
 
     imgs_segmented = []
     # project and plot
-    projection_vert = np.sum(img, axis=0) / 255 # 沿着竖直方向投影
+    
     projection_horz = np.sum(img, axis=1) / 255 # 沿着水平方向投影
-    mx_x = np.max(projection_vert)
-    th_x_val = mx_x * th_x_factor
     mx_y = np.max(projection_horz)
     th_y_val = mx_y * th_y_factor
+    heights = get_height(projection_horz, th_y_val)
+    img_roi = img[heights[0]:heights[1],:]
+
+    projection_vert = np.sum(img_roi, axis=0) / 255 # 沿着竖直方向投影
+    mx_x = np.max(projection_vert)
+    th_x_val = mx_x * th_x_factor
+    
     if want_plt:
         plt.figure()
         plt.subplot(2,2,1)
@@ -138,7 +147,6 @@ def digit_seg(img, th_x_factor=0.175, th_y_factor=0.15, want_plt=False):
         border_right = get_border_right(projection_vert, border_left, th_x_val)
         borders.append((border_left, border_right))
     print("vertical borders are ", borders)
-    heights = get_height(projection_horz, th_y_val)
     print("get_height: height range {0}".format(heights))
     return borders, heights
 
