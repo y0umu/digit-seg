@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-from itertools import takewhile
+# from itertools import takewhile
 
 # grayscale
 def mkgray(img):
@@ -89,7 +89,7 @@ def get_height(projection_horz, th_y_val):
         n+=1
     return height_up, height_down
 
-def digit_seg(img, th_x_factor=0.20, th_y_factor=0.20, want_plt=False):
+def digit_seg(img, th_x_factor=0.175, th_y_factor=0.15, want_plt=False):
     '''
     根据竖直和水平投影的信息分割出数字。返回包含所有分割结果图像的borders（横坐标集合）
 
@@ -118,12 +118,13 @@ def digit_seg(img, th_x_factor=0.20, th_y_factor=0.20, want_plt=False):
         plt.subplot(2,2,2)
         plt.plot(projection_horz, np.arange(img.shape[0], 0, -1))
         plt.plot(th_y_val*np.ones_like(projection_horz), np.arange(img.shape[0], 0, -1), color="r")
-        plt.title("horz projection")
+        plt.title("Horizontal projection")
         # plt.yticks(np.arange(img.shape[0], 0, -1))
         plt.subplot(2,2,3)
         plt.plot(np.arange(0, img.shape[1]), projection_vert)
         plt.plot(np.arange(0, img.shape[1]), th_x_val*np.ones_like(projection_vert), color="r")
-        plt.title("vert projection")
+        plt.title("Vertical projection")
+        plt.savefig("output\\projection.png")
 
     # find the borders 
     borders = []  # e.g. [(2,15), (17,29), (34, 47)]
@@ -173,10 +174,11 @@ if __name__ == "__main__":
     plt.xticks([]); plt.yticks([]); plt.title("Grayscale image")
     plt.subplot(3,1,2)
     plt.imshow(img_th, cmap="gray")
-    plt.xticks([]); plt.yticks([]); plt.title("thresholded image")
+    plt.xticks([]); plt.yticks([]); plt.title("Thresholded image")
     plt.subplot(3,1,3)
     plt.imshow(img_morph, cmap="gray")
     plt.xticks([]); plt.yticks([]); plt.title("Image applied with openning")
+    plt.savefig("output\\00_intermediates.png")
     
     the_img = blacken_bg(img_morph)
     borders, heights = digit_seg(the_img, want_plt=True)
@@ -189,6 +191,7 @@ if __name__ == "__main__":
     img_boxed = cv2.cvtColor(_img_boxed, cv2.COLOR_BGR2RGB)
     plt.figure()
     plt.imshow(img_boxed)
+    plt.savefig("output\\01_segmented_image_boxed.png")
     plt.xticks([]); plt.yticks([]); plt.title("Original image with bounding boxes")
     plt.figure()
     for (num, _im) in enumerate(imgs_segmented):
@@ -196,8 +199,8 @@ if __name__ == "__main__":
         plt.subplot(1, n_segs, num+1)
         plt.imshow(im)
         plt.xticks([]); plt.yticks([]); plt.title("No."+str(num+1))
+    plt.savefig("output\\02_segmented_image_subplot.png")
     plt.show()
-    cv2.waitKey()
     print("done")
 
 
