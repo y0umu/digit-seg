@@ -174,6 +174,11 @@ if __name__ == "__main__":
         raise ValueError("cannot read " + g_input_img_name)
 
     img_gray = mkgray(img)
+    hist_gray = cv2.calcHist([img_gray], [0], None, [255], [0,255])
+    plt.figure()
+    plt.plot(np.arange(0, 255), hist_gray.ravel())
+    plt.xlabel("Grayscale level")
+    plt.title("Histogram of the grayscale image")
     img_th = mkthresh(img_gray)
     img_morph = mkmorph(img_th)
     plt.figure()
@@ -189,6 +194,7 @@ if __name__ == "__main__":
     plt.savefig("output\\00_intermediates.png")
     
     the_img = blacken_bg(img_morph)
+    cv2.imwrite("output\\the_img.png", the_img)
     borders, heights = digit_seg(the_img, want_plt=True)
     imgs_segmented = []
     for i in borders:
